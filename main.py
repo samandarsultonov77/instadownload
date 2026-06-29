@@ -25,6 +25,9 @@ logger = logging.getLogger(__name__)
 # Env faylidan o'zgaruvchilarni yuklash
 load_dotenv()
 
+from database import BotDatabase
+db = BotDatabase()
+
 # Bot sozlamalari
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8523936962:AAG1NJ0UFZvYgLeDpB9yO_NgJ1TV5Ct2EXw")
 INSTAGRAM_USERNAME = os.environ.get("INSTAGRAM_USERNAME")
@@ -109,7 +112,19 @@ def download_video_file(video_url, filename):
             if chunk:
                 f.write(chunk)
 
+async def log_user_activity(update: Update):
+    if update.message and update.message.from_user:
+        user = update.message.from_user
+        await asyncio.to_thread(
+            db.log_user,
+            user.id,
+            user.username,
+            user.first_name,
+            user.last_name
+        )
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await log_user_activity(update)
     welcome_text = (
         "🎥 *Instagram Video Yuklovchi Bot*\n\n"
         "Menga Instagram video/reel havolasini yuboring va men uni sizga yuklab beraman!\n\n"
@@ -122,6 +137,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(welcome_text, parse_mode="Markdown")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await log_user_activity(update)
     help_text = (
         "📖 *Qo'llanma*\n\n"
         "1️⃣ Instagram'dan video havolasini nusxalang\n"
@@ -136,6 +152,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(help_text, parse_mode="Markdown")
 
 async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await log_user_activity(update)
     url = update.message.text.strip()
     greetings = ["salom", "hello", "hi", "assalomu alaykum", "start", "yordam", "help", "/start", "/help"]
     if url.lower() in greetings:
@@ -224,6 +241,34 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 pass
 
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    admin_id_str = os.environ.get("ADMIN_ID")
+    
+    if not admin_id_str:
+        await update.message.reply_text("❌ Admin ID sozlanmagan. Iltimos, .env faylida ADMIN_ID ni belgilang.")
+        return
+        
+    try:
+        admin_id = int(admin_id_str)
+    except ValueError:
+        await update.message.reply_text("❌ ADMIN_ID faqat sonlardan iborat bo'lishi kerak.")
+        return
+        
+    if user_id != admin_id:
+        await update.message.reply_text("⛔️ Bu buyruq faqat bot administratori uchun!")
+        return
+        
+    stats = await asyncio.to_thread(db.get_stats)
+    
+    stats_text = (
+        "📊 *Bot statistikasi:*\n\n"
+        f"👥 *Umumiy a'zolar:* {stats['total_users']} ta\n"
+        f"🔥 *Oxirgi 24 soatda faol:* {stats['active_today']} ta\n"
+        f"📅 *Oxirgi 7 kunda faol:* {stats['active_week']} ta\n"
+    )
+    await update.message.reply_text(stats_text, parse_mode="Markdown")
+
 def main():
     if not BOT_TOKEN:
         logger.error("BOT_TOKEN topilmadi!")
@@ -247,6 +292,7 @@ def main():
     )
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_video))
 
     logger.info("Bot polling rejimi bilan ishga tushirildi...")

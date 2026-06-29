@@ -4,3 +4,4 @@ requests>=2.28.0
 python-dotenv>=1.0.0
 yt-dlp>=2024.03.10
 parth-dl
+psycopg2-binary>=2.9.0
