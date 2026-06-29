@@ -168,3 +168,31 @@ class BotDatabase:
                 "active_today": 0,
                 "active_week": 0
             }
+
+    def get_all_users(self):
+        """Barcha foydalanuvchilar ro'yxatini qaytarish (birinchi qo'shilganlaridan boshlab yoki teskarisi)"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("SELECT user_id, username, first_name, last_name, joined_at, last_activity FROM users ORDER BY joined_at DESC")
+            rows = cursor.fetchall()
+            
+            users = []
+            for r in rows:
+                users.append({
+                    "user_id": r[0],
+                    "username": r[1],
+                    "first_name": r[2],
+                    "last_name": r[3],
+                    "joined_at": str(r[4]),
+                    "last_activity": str(r[5])
+                })
+                
+            cursor.close()
+            conn.close()
+            return users
+        except Exception as e:
+            print(f"ERROR: get_all_users bajarishda xatolik: {e}")
+            return []
+

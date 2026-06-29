@@ -29,7 +29,7 @@ from database import BotDatabase
 db = BotDatabase()
 
 # Bot sozlamalari
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8523936962:AAG1NJ0UFZvYgLeDpB9yO_NgJ1TV5Ct2EXw")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8523936962:AAGAKAx8zwf6OI7dGTCX-34QBnJYr1icN5w")
 INSTAGRAM_USERNAME = os.environ.get("INSTAGRAM_USERNAME")
 INSTAGRAM_PASSWORD = os.environ.get("INSTAGRAM_PASSWORD")
 
