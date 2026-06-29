@@ -102,7 +102,7 @@ def download_video_file(video_url, filename):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
-    response = requests.get(video_url, stream=True, headers=headers, timeout=30)
+    response = requests.get(video_url, stream=True, headers=headers, timeout=60)
     response.raise_for_status()
     with open(filename, "wb") as f:
         for chunk in response.iter_content(chunk_size=8192):
@@ -209,7 +209,8 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_video(
                 video=video_file,
                 caption=caption,
-                supports_streaming=True
+                supports_streaming=True,
+                write_timeout=120.0
             )
         await status_msg.delete()
 
@@ -234,7 +235,16 @@ def main():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .connect_timeout(60.0)
+        .read_timeout(60.0)
+        .write_timeout(120.0)
+        .media_write_timeout(180.0)
+        .pool_timeout(5.0)
+        .build()
+    )
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_video))
