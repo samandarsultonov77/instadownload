@@ -260,14 +260,75 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
         
     stats = await asyncio.to_thread(db.get_stats)
+    users_list = await asyncio.to_thread(db.get_all_users)
     
     stats_text = (
         "📊 *Bot statistikasi:*\n\n"
         f"👥 *Umumiy a'zolar:* {stats['total_users']} ta\n"
         f"🔥 *Oxirgi 24 soatda faol:* {stats['active_today']} ta\n"
-        f"📅 *Oxirgi 7 kunda faol:* {stats['active_week']} ta\n"
+        f"📅 *Oxirgi 7 kunda faol:* {stats['active_week']} ta\n\n"
     )
+    
+    if users_list:
+        stats_text += "🆕 *Oxirgi kirgan 10 ta foydalanuvchi:*\n"
+        for idx, u in enumerate(users_list[:10], 1):
+            username = f"@{u['username']}" if u['username'] else "username yo'q"
+            name = f"{u['first_name'] or ''} {u['last_name'] or ''}".strip() or "Ism yo'q"
+            stats_text += f"{idx}. {name} ({username}) - {u['joined_at'][:19]}\n"
+            
+        stats_text += "\n📂 Barcha foydalanuvchilar ro'yxatini yuklab olish uchun /users buyrug'ini yuboring."
+    else:
+        stats_text += "📭 Hozircha foydalanuvchilar yo'q."
+        
     await update.message.reply_text(stats_text, parse_mode="Markdown")
+
+async def users_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    admin_id_str = os.environ.get("ADMIN_ID")
+    
+    if not admin_id_str:
+        await update.message.reply_text("❌ Admin ID sozlanmagan. Iltimos, .env faylida ADMIN_ID ni belgilang.")
+        return
+        
+    try:
+        admin_id = int(admin_id_str)
+    except ValueError:
+        await update.message.reply_text("❌ ADMIN_ID faqat sonlardan iborat bo'lishi kerak.")
+        return
+        
+    if user_id != admin_id:
+        await update.message.reply_text("⛔️ Bu buyruq faqat bot administratori uchun!")
+        return
+        
+    users_list = await asyncio.to_thread(db.get_all_users)
+    
+    if not users_list:
+        await update.message.reply_text("📭 Hozircha botda foydalanuvchilar yo'q.")
+        return
+        
+    file_content = "ID, Username, First Name, Last Name, Joined At, Last Activity\n"
+    for u in users_list:
+        username = f"@{u['username']}" if u['username'] else "None"
+        first_name = u['first_name'] or ""
+        last_name = u['last_name'] or ""
+        file_content += f"{u['user_id']}, {username}, {first_name}, {last_name}, {u['joined_at']}, {u['last_activity']}\n"
+        
+    filename = "bot_users_list.txt"
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(file_content)
+        
+    with open(filename, "rb") as f:
+        await update.message.reply_document(
+            document=f,
+            filename="foydalanuvchilar_ro'yxati.txt",
+            caption=f"👥 Botdagi jami a'zolar ro'yxati ({len(users_list)} ta foydalanuvchi)"
+        )
+        
+    if os.path.exists(filename):
+        try:
+            os.remove(filename)
+        except Exception:
+            pass
 
 def main():
     if not BOT_TOKEN:
@@ -293,6 +354,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("stats", stats_command))
+    app.add_handler(CommandHandler("users", users_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_video))
 
     logger.info("Bot polling rejimi bilan ishga tushirildi...")
