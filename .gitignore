@@ -1,0 +1,13 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment variables (Sirlarni yashirish uchun)
+.env
+
+# Vaqtinchalik yuklab olingan videolar
+*.mp4
+
+# Instaloader session fayllari
+session-*
+cookies.txt

@@ -1,0 +1,33 @@
+STDOUT:
+
+╔═══════════════════════════════════════════════════════════════╗
+║                         parth-dl v1.0.1                        ║
+║              Instagram Media Downloader                       ║
+║                  (Public Content Only)                        ║
+╚═══════════════════════════════════════════════════════════════╝
+
+[parth-dl] Detected media URL
+[Extractor] Extracting media: C8gR7PzoqO3
+[Extractor] Attempting API extraction...
+[Extractor] Trying API extraction...
+[Extractor] Converted shortcode 'C8gR7PzoqO3' to media_id: 3395792957249594295
+[Extractor] Session setup successful
+[Extractor] API extraction error: Unexpected error: Content not found. It might be private or deleted.
+[Extractor] ✗ API returned no data
+[Extractor] Attempting Direct Page extraction...
+[Extractor] ✗ Direct Page failed: 'MediaExtractor' object has no attribute '_extract_from_page'
+[Extractor] Attempting GraphQL extraction...
+[Extractor] Trying GraphQL extraction...
+[Extractor] GraphQL response keys: ['errors', 'data', 'status']
+[Extractor] GraphQL extraction error: 'NoneType' object has no attribute 'get'
+[Extractor] ✗ GraphQL returned no data
+[Extractor] Attempting Embed extraction...
+[Extractor] Trying embed extraction...
+[Extractor] Embed page loaded, length: 81332 chars
+[Extractor] __additionalDataLoaded not found
+[Extractor] ✗ Embed returned no data
+
+
+STDERR:
+
+[parth-dl] ✗ Download failed: All extraction methods failed. Content might be private or unavailable.
