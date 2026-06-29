@@ -260,26 +260,14 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
         
     stats = await asyncio.to_thread(db.get_stats)
-    users_list = await asyncio.to_thread(db.get_all_users)
     
     stats_text = (
         "📊 *Bot statistikasi:*\n\n"
         f"👥 *Umumiy a'zolar:* {stats['total_users']} ta\n"
         f"🔥 *Oxirgi 24 soatda faol:* {stats['active_today']} ta\n"
         f"📅 *Oxirgi 7 kunda faol:* {stats['active_week']} ta\n\n"
+        "📂 Barcha foydalanuvchilar ro'yxatini yuklab olish uchun /users buyrug'ini yuboring."
     )
-    
-    if users_list:
-        stats_text += "🆕 *Oxirgi kirgan 10 ta foydalanuvchi:*\n"
-        for idx, u in enumerate(users_list[:10], 1):
-            username = f"@{u['username']}" if u['username'] else "username yo'q"
-            name = f"{u['first_name'] or ''} {u['last_name'] or ''}".strip() or "Ism yo'q"
-            stats_text += f"{idx}. {name} ({username}) - {u['joined_at'][:19]}\n"
-            
-        stats_text += "\n📂 Barcha foydalanuvchilar ro'yxatini yuklab olish uchun /users buyrug'ini yuboring."
-    else:
-        stats_text += "📭 Hozircha foydalanuvchilar yo'q."
-        
     await update.message.reply_text(stats_text, parse_mode="Markdown")
 
 async def users_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
