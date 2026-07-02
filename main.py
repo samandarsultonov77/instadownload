@@ -252,6 +252,30 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await status_msg.edit_text("⏳ Video yuklab olinmoqda, iltimos kuting...")
 
     try:
+        caption = "✅ Video yuklab olindi!\n\n"
+        if post_details["caption"]:
+            short_caption = post_details["caption"][:200]
+            if len(post_details["caption"]) > 200:
+                short_caption += "..."
+            caption += f"📝 {short_caption}"
+
+        await status_msg.edit_text("📤 Video yuborilmoqda...")
+
+        try:
+            logger.info("Videoni to'g'ridan-to'g'ri URL orqali yuborishga urinish...")
+            await update.message.reply_video(
+                video=video_url,
+                caption=caption,
+                supports_streaming=True,
+                write_timeout=60.0
+            )
+            await status_msg.delete()
+            return
+        except Exception as url_send_err:
+            logger.warning(f"URL orqali yuborish o'xshamadi ({url_send_err}). Serverga yuklab yuborishga urinib ko'ramiz...")
+
+        # Agar URL orqali yuborish o'xshamasa, serverga yuklab keyin jo'natamiz
+        await status_msg.edit_text("⏳ Video yuklab olinmoqda (server orqali), iltimos kuting...")
         await asyncio.to_thread(download_video_file, video_url, video_filename)
         file_size = os.path.getsize(video_filename)
         file_size_mb = file_size / (1024 * 1024)
@@ -267,13 +291,6 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         await status_msg.edit_text("📤 Video yuborilmoqda...")
-
-        caption = "✅ Video yuklab olindi!\n\n"
-        if post_details["caption"]:
-            short_caption = post_details["caption"][:200]
-            if len(post_details["caption"]) > 200:
-                short_caption += "..."
-            caption += f"📝 {short_caption}"
 
         with open(video_filename, "rb") as video_file:
             await update.message.reply_video(
