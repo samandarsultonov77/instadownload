@@ -35,16 +35,28 @@ INSTAGRAM_PASSWORD = os.environ.get("INSTAGRAM_PASSWORD")
 
 cl = Client()
 
+is_logged_in = False
+
 if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
     session_file = f"session_{INSTAGRAM_USERNAME}.json"
     try:
         if os.path.exists(session_file):
             cl.load_settings(session_file)
-            cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-            logger.info("Instagrapi session loaded and logged in.")
+            try:
+                # Sessionni tekshirish uchun kichik so'rov yuboramiz
+                cl.get_timeline_feed()
+                is_logged_in = True
+                logger.info("Instagrapi session loaded and validated.")
+            except Exception:
+                logger.info("Saved session invalid. Attempting to login with password...")
+                cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                cl.dump_settings(session_file)
+                is_logged_in = True
+                logger.info("Instagrapi logged in and new session saved.")
         else:
             cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
             cl.dump_settings(session_file)
+            is_logged_in = True
             logger.info("Instagrapi logged in and session saved.")
     except Exception as e:
         logger.error(f"Instagrapi login error: {e}")
@@ -65,41 +77,82 @@ def extract_shortcode(url):
     return None
 
 def fetch_post_details(url):
-    logger.info(f"Instagrapi orqali yuklashga urinish: {url}")
-    try:
-        media_pk = cl.media_pk_from_url(url)
-        media = cl.media_info(media_pk)
-        
-        is_video = media.media_type == 2 or media.media_type == 8
-        video_url = media.video_url
-        if not video_url and getattr(media, 'resources', None):
-             for res in media.resources:
-                 if res.media_type == 2:
-                     video_url = res.video_url
-                     is_video = True
-                     break
-                     
-        return {
-            "is_video": is_video,
-            "video_url": str(video_url) if video_url else None,
-            "caption": media.caption_text if media.caption_text else ""
-        }
-    except Exception as e:
-        logger.error(f"Instagrapi xatolik: {e}. Fallback yt-dlp...")
-        
+    if is_logged_in:
+        logger.info(f"Instagrapi orqali yuklashga urinish: {url}")
         try:
-            import yt_dlp
-            ydl_opts = {'quiet': True, 'no_warnings': True}
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info_dict = ydl.extract_info(url, download=False)
-                return {
-                    "is_video": True,
-                    "video_url": info_dict.get("url"),
-                    "caption": info_dict.get("title", "")
-                }
-        except Exception as ytdlp_err:
-            logger.error(f"yt-dlp ham yuklay olmadi: {ytdlp_err}")
-            raise e
+            media_pk = cl.media_pk_from_url(url)
+            media = cl.media_info(media_pk)
+            
+            is_video = media.media_type == 2 or media.media_type == 8
+            video_url = media.video_url
+            if not video_url and getattr(media, 'resources', None):
+                 for res in media.resources:
+                     if res.media_type == 2:
+                         video_url = res.video_url
+                         is_video = True
+                         break
+                         
+            return {
+                "is_video": is_video,
+                "video_url": str(video_url) if video_url else None,
+                "caption": media.caption_text if media.caption_text else ""
+            }
+        except Exception as e:
+            logger.error(f"Instagrapi xatolik: {e}. Fallback btch-downloader...")
+    else:
+        logger.info(f"Instagrapi tizimga kirmagan. To'g'ridan-to'g'ri btch-downloader ishlatiladi: {url}")
+
+    # btch-downloader orqali yuklashga urinish
+    try:
+        import asyncio
+        from btch_downloader import igdl
+        results = asyncio.run(igdl(url))
+        logger.info(f"btch-downloader results: {results}")
+        if results and len(results) > 0:
+            first = results[0]
+            video_url = first.get("url")
+            
+            # JWT tokenni decode qilib real fayl turi va nomini aniqlaymiz
+            is_video = True
+            try:
+                import base64
+                import json
+                from urllib.parse import urlparse, parse_qs
+                parsed = urlparse(video_url)
+                token = parse_qs(parsed.query).get("token", [None])[0]
+                if token:
+                    payload_b64 = token.split(".")[1]
+                    padding = "=" * (4 - len(payload_b64) % 4)
+                    payload = json.loads(base64.urlsafe_b64decode(payload_b64 + padding).decode("utf-8"))
+                    real_url = payload.get("url", "")
+                    filename = payload.get("filename", "")
+                    is_video = filename.endswith(".mp4") or "mp4" in real_url.lower()
+            except Exception as jwt_err:
+                logger.error(f"Error decoding JWT token: {jwt_err}")
+                
+            return {
+                "is_video": is_video,
+                "video_url": video_url,
+                "caption": ""
+            }
+    except Exception as btch_err:
+        logger.error(f"btch-downloader ham yuklay olmadi: {btch_err}")
+
+    # yt-dlp fallback
+    logger.info("Fallback yt-dlp...")
+    try:
+        import yt_dlp
+        ydl_opts = {'quiet': True, 'no_warnings': True}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(url, download=False)
+            return {
+                "is_video": True,
+                "video_url": info_dict.get("url"),
+                "caption": info_dict.get("title", "")
+            }
+    except Exception as ytdlp_err:
+        logger.error(f"yt-dlp ham yuklay olmadi: {ytdlp_err}")
+        raise Exception("Instagram-dan video ma'lumotini olish imkoni bo'lmadi.")
 
 def download_video_file(video_url, filename):
     headers = {
